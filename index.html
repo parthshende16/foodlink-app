@@ -6,9 +6,9 @@
   <title>FoodLink - Fight Food Waste</title>
   <link rel="stylesheet" href="style.css" />
   <script type="module">
-    // Import the necessary Firebase SDKs
+    // Import necessary Firebase SDKs
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, updateDoc, doc, getDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
     // Firebase configuration
     const firebaseConfig = {
@@ -67,11 +67,18 @@
 
     // Function to mark food post as picked
     async function markPicked(id) {
-      const foodDoc = doc(db, "foodPosts", id);
+      console.log("Marking as picked for ID:", id);
+      const foodDocRef = doc(db, "foodPosts", id);
+      
+      // Check if the document exists
+      const docSnapshot = await getDoc(foodDocRef);
+      if (!docSnapshot.exists()) {
+        console.log("Document not found!");
+        return;
+      }
+
       try {
-        await updateDoc(foodDoc, {
-          isPicked: true
-        });
+        await updateDoc(foodDocRef, { isPicked: true });
         console.log('Food marked as picked');
       } catch (error) {
         console.error("Error marking food as picked: ", error);
