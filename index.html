@@ -1,104 +1,88 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>FoodLink - Fight Food Waste</title>
-  <link rel="stylesheet" href="style.css" />
-  
-  <!-- Firebase SDK imports -->
-  <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+<script type="module">
+  import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
+  import { getFirestore, collection, addDoc, deleteDoc, doc, onSnapshot, updateDoc, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+  import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-analytics.js";
 
-    // Firebase configuration
-    const firebaseConfig = {
-      apiKey: "AIzaSyBHHGbOnapcjOnziOi1bnIimIlomq2T7m4",
-      authDomain: "foodlink-c32ba.firebaseapp.com",
-      projectId: "foodlink-c32ba",
-      storageBucket: "foodlink-c32ba.firebasestorage.app",
-      messagingSenderId: "799972977163",
-      appId: "1:799972977163:web:48d169ad84eeea331b350e",
-      measurementId: "G-C85MPJJGCV"
+  // Firebase Configuration
+  const firebaseConfig = {
+    apiKey: "AIzaSyBHHGbOnapcjOnziOi1bnIimIlomq2T7m4",
+    authDomain: "foodlink-c32ba.firebaseapp.com",
+    projectId: "foodlink-c32ba",
+    storageBucket: "foodlink-c32ba.firebasestorage.app",
+    messagingSenderId: "799972977163",
+    appId: "1:799972977163:web:48d169ad84eeea331b350e",
+    measurementId: "G-C85MPJJGCV"
+  };
+
+  // Initialize Firebase
+  const app = initializeApp(firebaseConfig);
+  const analytics = getAnalytics(app);
+  const db = getFirestore(app);
+
+  // DOM Elements
+  const form = document.getElementById("foodForm");
+  const foodList = document.getElementById("foodList");
+
+  // Add food item to Firestore
+  form.addEventListener("submit", async (e) => {
+    e.preventDefault();
+
+    const foodData = {
+      foodName: document.getElementById("foodName").value,
+      quantity: document.getElementById("quantity").value,
+      location: document.getElementById("location").value,
+      pickupTime: document.getElementById("pickupTime").value,
+      isPicked: false,
+      timestamp: new Date()
     };
 
-    // Initialize Firebase
-    const app = initializeApp(firebaseConfig);
-    const db = getFirestore(app);
+    try {
+      await addDoc(collection(db, "foodPosts"), foodData);
+      form.reset();
+    } catch (e) {
+      console.error("Error adding document: ", e);
+    }
+  });
 
-    // Reference to the collection
-    const foodCollection = collection(db, 'foodPosts');
-
-    // DOM elements
-    const form = document.getElementById('foodForm');
-    const foodList = document.getElementById('foodList');
-
-    // Event listener for form submission to add new food
-    form.addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const foodData = {
-        foodName: document.getElementById('foodName').value,
-        quantity: document.getElementById('quantity').value,
-        location: document.getElementById('location').value,
-        pickupTime: document.getElementById('pickupTime').value,
-        timestamp: serverTimestamp()
-      };
-      try {
-        // Add food to Firestore
-        await addDoc(foodCollection, foodData);
-        form.reset();
-      } catch (error) {
-        console.error("Error adding document: ", error);
-      }
-    });
-
-    // Listener to show the list of food available
-    onSnapshot(foodCollection, (snapshot) => {
-      foodList.innerHTML = '';
-      snapshot.forEach((doc) => {
-        const data = doc.data();
-        const div = document.createElement('div');
-        div.className = 'card';
+  // Fetch and display food items
+  const q = query(collection(db, "foodPosts"), orderBy("timestamp", "desc"));
+  onSnapshot(q, (snapshot) => {
+    foodList.innerHTML = "";
+    snapshot.forEach((doc) => {
+      const data = doc.data();
+      if (!data.isPicked) {
+        const div = document.createElement("div");
+        div.className = "card";
         div.innerHTML = `
           <h3>${data.foodName}</h3>
           <p><strong>Qty:</strong> ${data.quantity}</p>
           <p><strong>Pickup:</strong> ${data.location} at ${data.pickupTime}</p>
           <button onclick="markPicked('${doc.id}')">Mark as Picked</button>
+          <button onclick="deleteFoodItem('${doc.id}')">Delete</button>
         `;
         foodList.appendChild(div);
-      });
-    });
-
-    // Function to delete the item from Firestore when marked as picked
-    async function markPicked(id) {
-      try {
-        // Reference to the document
-        const foodDoc = doc(db, 'foodPosts', id);
-        // Delete the document
-        await deleteDoc(foodDoc);
-      } catch (error) {
-        console.error("Error deleting document: ", error);
       }
+    });
+  });
+
+  // Mark food item as picked
+  async function markPicked(id) {
+    const foodRef = doc(db, "foodPosts", id);
+    try {
+      await updateDoc(foodRef, { isPicked: true });
+    } catch (e) {
+      console.error("Error marking as picked: ", e);
     }
-  </script>
-</head>
-<body>
-  <div class="container">
-    <h1>FoodLink</h1>
-    <p>Connecting leftovers to the needy</p>
+  }
 
-    <!-- Form to add new food -->
-    <form id="foodForm">
-      <input type="text" id="foodName" placeholder="Food Name" required />
-      <input type="number" id="quantity" placeholder="Quantity (servings)" required />
-      <input type="text" id="location" placeholder="Pickup Location" required />
-      <input type="time" id="pickupTime" required />
-      <button type="submit">Post Food</button>
-    </form>
-
-    <!-- Display available food -->
-    <h2>Available Food</h2>
-    <div id="foodList"></div>
-  </div>
-</body>
-</html>
+  // Delete food item
+  async function deleteFoodItem(id) {
+    const foodRef = doc(db, "foodPosts", id);
+    try {
+      await deleteDoc(foodRef);
+      console.log("Food item deleted");
+    } catch (e) {
+      console.error("Error deleting document: ", e);
+    }
+  }
+</script>
