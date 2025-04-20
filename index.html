@@ -1,16 +1,14 @@
 <!DOCTYPE html>
-<html lang="en">
+<html>
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FoodLink - Fight Food Waste</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- Firebase Scripts (ES6 imports) -->
   <script type="module">
-    // Import the necessary Firebase modules
+    // Import the functions you need from the SDKs you need
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
     import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-analytics.js";
-    import { getFirestore, collection, addDoc, query, orderBy, onSnapshot, updateDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, updateDoc, deleteDoc, query, orderBy, onSnapshot, doc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
     // Your web app's Firebase configuration
     const firebaseConfig = {
@@ -28,11 +26,10 @@
     const analytics = getAnalytics(app);
     const db = getFirestore(app);
 
-    // HTML elements
     const form = document.getElementById('foodForm');
     const foodList = document.getElementById('foodList');
 
-    // Submit form
+    // Listen to form submission and add food data to Firestore
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const foodData = {
@@ -41,17 +38,20 @@
         location: document.getElementById('location').value,
         pickupTime: document.getElementById('pickupTime').value,
         isPicked: false,
-        timestamp: serverTimestamp()
+        timestamp: new Date().toISOString() // Use ISO string for timestamp
       };
-      await addDoc(collection(db, 'foodPosts'), foodData);
+      
+      // Add food data to Firestore
+      await addDoc(collection(db, "foodPosts"), foodData);
       form.reset();
     });
 
-    // Real-time updates for food posts
-    const foodQuery = query(collection(db, "foodPosts"), orderBy("timestamp", "desc"));
-    onSnapshot(foodQuery, snapshot => {
+    // Fetch food posts and display them
+    const q = query(collection(db, "foodPosts"), orderBy("timestamp", "desc"));
+
+    onSnapshot(q, (snapshot) => {
       foodList.innerHTML = "";
-      snapshot.forEach(doc => {
+      snapshot.forEach((doc) => {
         const data = doc.data();
         if (!data.isPicked) {
           const div = document.createElement("div");
@@ -67,10 +67,21 @@
       });
     });
 
-    // Mark food as picked
+    // Mark food as picked and delete from the list (optional)
     async function markPicked(id) {
-      const foodRef = doc(db, 'foodPosts', id);
-      await updateDoc(foodRef, { isPicked: true });
+      try {
+        const foodRef = doc(db, "foodPosts", id); // Get the document reference
+        await updateDoc(foodRef, {
+          isPicked: true // Mark the food as picked
+        });
+
+        // Optionally, delete the document after marking as picked
+        // await deleteDoc(foodRef); // Uncomment this line if you want to remove it after marking picked
+
+        console.log(`Food post with ID: ${id} marked as picked.`);
+      } catch (error) {
+        console.error("Error updating or deleting document: ", error);
+      }
     }
   </script>
 </head>
