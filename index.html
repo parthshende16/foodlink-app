@@ -1,21 +1,21 @@
 <!DOCTYPE html>
-<html>
+<html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FoodLink - Fight Food Waste</title>
   <link rel="stylesheet" href="style.css" />
   <script type="module">
-    // Import the functions you need from the SDKs you need
+    // Import the necessary Firebase SDKs
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-    import { getAnalytics } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-analytics.js";
-    import { getFirestore, collection, addDoc, updateDoc, deleteDoc, query, orderBy, onSnapshot, doc } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, updateDoc, doc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
-    // Your web app's Firebase configuration
+    // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBHHGbOnapcjOnziOi1bnIimIlomq2T7m4",
       authDomain: "foodlink-c32ba.firebaseapp.com",
       projectId: "foodlink-c32ba",
-      storageBucket: "foodlink-c32ba.firebasestorage.app",
+      storageBucket: "foodlink-c32ba.appspot.com",
       messagingSenderId: "799972977163",
       appId: "1:799972977163:web:48d169ad84eeea331b350e",
       measurementId: "G-C85MPJJGCV"
@@ -23,13 +23,12 @@
 
     // Initialize Firebase
     const app = initializeApp(firebaseConfig);
-    const analytics = getAnalytics(app);
     const db = getFirestore(app);
 
     const form = document.getElementById('foodForm');
     const foodList = document.getElementById('foodList');
 
-    // Listen to form submission and add food data to Firestore
+    // Handle form submission to add food post
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const foodData = {
@@ -38,20 +37,19 @@
         location: document.getElementById('location').value,
         pickupTime: document.getElementById('pickupTime').value,
         isPicked: false,
-        timestamp: new Date().toISOString() // Use ISO string for timestamp
+        timestamp: new Date()
       };
-      
-      // Add food data to Firestore
-      await addDoc(collection(db, "foodPosts"), foodData);
+
+      // Add the new food post to Firestore
+      await addDoc(collection(db, 'foodPosts'), foodData);
       form.reset();
     });
 
-    // Fetch food posts and display them
-    const q = query(collection(db, "foodPosts"), orderBy("timestamp", "desc"));
-
-    onSnapshot(q, (snapshot) => {
+    // Listen for changes in the Firestore database
+    const foodQuery = query(collection(db, "foodPosts"), orderBy("timestamp", "desc"));
+    onSnapshot(foodQuery, snapshot => {
       foodList.innerHTML = "";
-      snapshot.forEach((doc) => {
+      snapshot.forEach(doc => {
         const data = doc.data();
         if (!data.isPicked) {
           const div = document.createElement("div");
@@ -67,20 +65,16 @@
       });
     });
 
-    // Mark food as picked and delete from the list (optional)
+    // Function to mark food post as picked
     async function markPicked(id) {
+      const foodDoc = doc(db, "foodPosts", id);
       try {
-        const foodRef = doc(db, "foodPosts", id); // Get the document reference
-        await updateDoc(foodRef, {
-          isPicked: true // Mark the food as picked
+        await updateDoc(foodDoc, {
+          isPicked: true
         });
-
-        // Optionally, delete the document after marking as picked
-        // await deleteDoc(foodRef); // Uncomment this line if you want to remove it after marking picked
-
-        console.log(`Food post with ID: ${id} marked as picked.`);
+        console.log('Food marked as picked');
       } catch (error) {
-        console.error("Error updating or deleting document: ", error);
+        console.error("Error marking food as picked: ", error);
       }
     }
   </script>
@@ -90,6 +84,7 @@
     <h1>FoodLink</h1>
     <p>Connecting leftovers to the needy</p>
 
+    <!-- Food posting form -->
     <form id="foodForm">
       <input type="text" id="foodName" placeholder="Food Name" required />
       <input type="number" id="quantity" placeholder="Quantity (servings)" required />
@@ -98,6 +93,7 @@
       <button type="submit">Post Food</button>
     </form>
 
+    <!-- Available food posts list -->
     <h2>Available Food</h2>
     <div id="foodList"></div>
   </div>
