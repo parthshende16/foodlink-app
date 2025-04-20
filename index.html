@@ -5,17 +5,18 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>FoodLink - Fight Food Waste</title>
   <link rel="stylesheet" href="style.css" />
+  
+  <!-- Firebase SDK imports -->
   <script type="module">
-    // Import necessary Firebase SDKs
     import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-app.js";
-    import { getFirestore, collection, addDoc, updateDoc, doc, getDoc, onSnapshot, query, orderBy } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
+    import { getFirestore, collection, addDoc, onSnapshot, deleteDoc, doc, serverTimestamp } from "https://www.gstatic.com/firebasejs/11.6.0/firebase-firestore.js";
 
     // Firebase configuration
     const firebaseConfig = {
       apiKey: "AIzaSyBHHGbOnapcjOnziOi1bnIimIlomq2T7m4",
       authDomain: "foodlink-c32ba.firebaseapp.com",
       projectId: "foodlink-c32ba",
-      storageBucket: "foodlink-c32ba.appspot.com",
+      storageBucket: "foodlink-c32ba.firebasestorage.app",
       messagingSenderId: "799972977163",
       appId: "1:799972977163:web:48d169ad84eeea331b350e",
       measurementId: "G-C85MPJJGCV"
@@ -25,10 +26,14 @@
     const app = initializeApp(firebaseConfig);
     const db = getFirestore(app);
 
+    // Reference to the collection
+    const foodCollection = collection(db, 'foodPosts');
+
+    // DOM elements
     const form = document.getElementById('foodForm');
     const foodList = document.getElementById('foodList');
 
-    // Handle form submission to add food post
+    // Event listener for form submission to add new food
     form.addEventListener('submit', async (e) => {
       e.preventDefault();
       const foodData = {
@@ -36,52 +41,43 @@
         quantity: document.getElementById('quantity').value,
         location: document.getElementById('location').value,
         pickupTime: document.getElementById('pickupTime').value,
-        isPicked: false,
-        timestamp: new Date()
+        timestamp: serverTimestamp()
       };
-
-      // Add the new food post to Firestore
-      await addDoc(collection(db, 'foodPosts'), foodData);
-      form.reset();
+      try {
+        // Add food to Firestore
+        await addDoc(foodCollection, foodData);
+        form.reset();
+      } catch (error) {
+        console.error("Error adding document: ", error);
+      }
     });
 
-    // Listen for changes in the Firestore database
-    const foodQuery = query(collection(db, "foodPosts"), orderBy("timestamp", "desc"));
-    onSnapshot(foodQuery, snapshot => {
-      foodList.innerHTML = "";
-      snapshot.forEach(doc => {
+    // Listener to show the list of food available
+    onSnapshot(foodCollection, (snapshot) => {
+      foodList.innerHTML = '';
+      snapshot.forEach((doc) => {
         const data = doc.data();
-        if (!data.isPicked) {
-          const div = document.createElement("div");
-          div.className = "card";
-          div.innerHTML = `
-            <h3>${data.foodName}</h3>
-            <p><strong>Qty:</strong> ${data.quantity}</p>
-            <p><strong>Pickup:</strong> ${data.location} at ${data.pickupTime}</p>
-            <button onclick="markPicked('${doc.id}')">Mark as Picked</button>
-          `;
-          foodList.appendChild(div);
-        }
+        const div = document.createElement('div');
+        div.className = 'card';
+        div.innerHTML = `
+          <h3>${data.foodName}</h3>
+          <p><strong>Qty:</strong> ${data.quantity}</p>
+          <p><strong>Pickup:</strong> ${data.location} at ${data.pickupTime}</p>
+          <button onclick="markPicked('${doc.id}')">Mark as Picked</button>
+        `;
+        foodList.appendChild(div);
       });
     });
 
-    // Function to mark food post as picked
+    // Function to delete the item from Firestore when marked as picked
     async function markPicked(id) {
-      console.log("Marking as picked for ID:", id);
-      const foodDocRef = doc(db, "foodPosts", id);
-      
-      // Check if the document exists
-      const docSnapshot = await getDoc(foodDocRef);
-      if (!docSnapshot.exists()) {
-        console.log("Document not found!");
-        return;
-      }
-
       try {
-        await updateDoc(foodDocRef, { isPicked: true });
-        console.log('Food marked as picked');
+        // Reference to the document
+        const foodDoc = doc(db, 'foodPosts', id);
+        // Delete the document
+        await deleteDoc(foodDoc);
       } catch (error) {
-        console.error("Error marking food as picked: ", error);
+        console.error("Error deleting document: ", error);
       }
     }
   </script>
@@ -91,7 +87,7 @@
     <h1>FoodLink</h1>
     <p>Connecting leftovers to the needy</p>
 
-    <!-- Food posting form -->
+    <!-- Form to add new food -->
     <form id="foodForm">
       <input type="text" id="foodName" placeholder="Food Name" required />
       <input type="number" id="quantity" placeholder="Quantity (servings)" required />
@@ -100,7 +96,7 @@
       <button type="submit">Post Food</button>
     </form>
 
-    <!-- Available food posts list -->
+    <!-- Display available food -->
     <h2>Available Food</h2>
     <div id="foodList"></div>
   </div>
